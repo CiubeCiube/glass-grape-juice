@@ -6,24 +6,14 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.content.Context;
 
-/**
- * CubeView
- *
- * Draws a 3-D cube spinning around its vertical axis using a parallel
- * dimetric/isometric projection onto a 2-D Canvas.
- *
- * All tunable values live in {@link Params}; nothing is hardcoded here.
- */
 public class CubeView extends View {
 
     // -----------------------------------------------------------------------
-    // Geometry  — built from Params at construction time
+    // Geometry
     // -----------------------------------------------------------------------
 
-    private final float[][] mVertices;   // [8][3]  x,y,z
-    
-    // Corretto l'ordine dei vertici in senso antiorario (CCW) dall'esterno
-    // per far funzionare correttamente il back-face culling.
+    private final float[][] mVertices;
+
     private static final int[][] FACES = {
         { 4, 7, 6, 5 }, // top
         { 2, 6, 7, 3 }, // front
@@ -49,15 +39,18 @@ public class CubeView extends View {
     private long mStartTime = -1;
     private final double mElevationRad = Math.toRadians(Params.ELEVATION_DEGREES);
 
+    // Pre-compute the fixed angle once when SPINNING = false
+    private final float mStaticCosT;
+    private final float mStaticSinT;
+
     // -----------------------------------------------------------------------
-    // Paint / path — allocated once, reused every frame (zero GC pressure)
+    // Paint / path
     // -----------------------------------------------------------------------
 
     private final Paint mFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint mEdgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path  mPath      = new Path();
 
-    // Projection scratch arrays
     private final float[] mProjX = new float[8];
     private final float[] mProjY = new float[8];
 
@@ -66,7 +59,6 @@ public class CubeView extends View {
     public CubeView(Context context) {
         super(context);
 
-        // Build vertices from Params so changing CUBE_HALF_SIZE takes effect.
         float s = Params.CUBE_HALF_SIZE;
         mVertices = new float[][] {
             { -s, -s, -s }, // 0 bottom-back-left
@@ -78,6 +70,11 @@ public class CubeView extends View {
             {  s,  s,  s }, // 6 top-front-right
             { -s,  s,  s }, // 7 top-front-left
         };
+
+        // Pre-compute trig for the static angle so onDraw does zero extra work
+        double staticRad = Math.toRadians(Params.STATIC_ANGLE_DEGREES);
+        mStaticCosT = (float) Math.cos(staticRad);
+        mStaticSinT = (float) Math.sin(staticRad);
 
         mEdgePaint.setStyle(Paint.Style.STROKE);
         mEdgePaint.setStrokeWidth(Params.EDGE_STROKE_WIDTH);
@@ -97,13 +94,22 @@ public class CubeView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        // --- time & angle ---
-        long now = android.os.SystemClock.elapsedRealtime();
-        if (mStartTime < 0) mStartTime = now;
-        float theta = (now - mStartTime) * Params.ROTATION_SPEED_RAD_PER_MS;
+        final float cosT;
+        final float sinT;
 
-        float cosT = (float) Math.cos(theta);
-        float sinT = (float) Math.sin(theta);
+        if (Params.SPINNING) {
+            // Animate: derive angle from elapsed time
+            long now = android.os.SystemClock.elapsedRealtime();
+            if (mStartTime < 0) mStartTime = now;
+            float theta = (now - mStartTime) * Params.ROTATION_SPEED_RAD_PER_MS;
+            cosT = (float) Math.cos(theta);
+            sinT = (float) Math.sin(theta);
+        } else {
+            // Static: use the pre-computed fixed angle — draw once, never again
+            cosT = mStaticCosT;
+            sinT = mStaticSinT;
+        }
+
         float cosE = (float) Math.cos(mElevationRad);
         float sinE = (float) Math.sin(mElevationRad);
 
@@ -119,12 +125,11 @@ public class CubeView extends View {
             float xw =  x * cosT + z * sinT;
             float zw = -x * sinT + z * cosT;
 
-            // Rimosso il moltiplicatore cosE da mProjX per evitare lo schiacciamento orizzontale
             mProjX[i] = cx + xw;
             mProjY[i] = cy - y * cosE + zw * sinE;
         }
 
-        // --- painter's algorithm: sort faces back-to-front by avg zw ---
+        // --- painter's algorithm ---
         float[] faceDepth = new float[6];
         for (int f = 0; f < 6; f++) {
             float sum = 0f;
@@ -148,10 +153,9 @@ public class CubeView extends View {
 
         // --- draw faces ---
         for (int fi = 0; fi < 6; fi++) {
-            int f    = order[fi];
+            int f      = order[fi];
             int[] face = FACES[f];
 
-            // Back-face cull via 2-D cross product (ora coerente grazie al nuovo FACES)
             float ax = mProjX[face[1]] - mProjX[face[0]];
             float ay = mProjY[face[1]] - mProjY[face[0]];
             float bx = mProjX[face[2]] - mProjX[face[0]];
@@ -170,6 +174,9 @@ public class CubeView extends View {
             canvas.drawPath(mPath, mEdgePaint);
         }
 
-        postInvalidateOnAnimation();
+        // Only schedule the next frame when actually animating
+        if (Params.SPINNING) {
+            postInvalidateOnAnimation();
+        }
     }
 }
