@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        GlassTheme: fullscreen black immersion.
+        Inherits from Theme.DeviceDefault.NoActionBar.Fullscreen which is
+        available on API 19 (Android 4.4 / XE24) and strips the Holo gradient.
+    -->
+    <style name="ImmersiveTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:colorBackground">@android:color/black</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+</resources>
