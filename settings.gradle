@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'Shakerato'
+rootProject.name = 'Grape'
 include ':app'

@@ -1,4 +1,4 @@
-package com.ciube.glass.shakerato;
+package com.ciube.glass.grape;
 
 import android.app.Activity;
 import android.media.AudioManager;

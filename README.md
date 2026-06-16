@@ -1,4 +1,4 @@
-# Shakerato
+# Grape Juice
 
 Glassware that displays a cube on your Glass
 
